@@ -36,35 +36,18 @@ export const COLOR_SCALE = scaleThreshold()
     [128, 0, 38]
   ]);
 
-const INITIAL_VIEW_STATE = {
-  latitude: 49.254,
-  longitude: -123.13,
-  zoom: 11,
-  maxZoom: 16,
-  pitch: 45,
-  bearing: 0
-};
+
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json';
 
-const ambientLight = new AmbientLight({
-  color: [255, 255, 255],
-  intensity: 1.0
-});
-
-const dirLight = new SunLight({
-  timestamp: Date.UTC(2019, 7, 1, 13),
-  color: [255, 255, 255],
-  intensity: 1.0,
-  _shadow: true
-});
-
 const landCover = [[[-123.0, 49.196], [-123.0, 49.324], [-123.306, 49.324], [-123.306, 49.196]]];
 
+
+const currentYear = 1981
 function getTooltip({ object }) {
   if (!object) return;
 
-  const population = object.properties.population ? parseInt(object.properties.population['2010']) : 0
+  const population = object.properties.population ? parseInt(object.properties.population[`${currentYear}`]) : 0
   const area = parseInt(object.properties.area)
 
   return (
@@ -82,25 +65,23 @@ function getTooltip({ object }) {
 
 const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
 
-  const [effects] = useState(() => {
-    const lightingEffect = new LightingEffect({ ambientLight, dirLight });
-    lightingEffect.shadowColor = [0, 0, 0, 0.5];
-    return [lightingEffect];
-  });
 
   population.features.forEach(feature => {
     feature.properties.area = turf.area(feature.geometry) / 1000000
   })
 
+  const [longitude, latitude] = turf.center(turf.featureCollection(population.features)).geometry.coordinates
+
+  const initialViewState = {
+    latitude,
+    longitude,
+    zoom: 8,
+    maxZoom: 16,
+    pitch: 45,
+    bearing: 0
+  };
+
   const layers = [
-    // only needed when using shadows - a plane for shadows to drop on
-    new PolygonLayer({
-      id: 'ground',
-      data: landCover,
-      stroked: false,
-      getPolygon: f => f,
-      getFillColor: [0, 0, 0, 0]
-    }),
     new GeoJsonLayer({
       id: 'geojson',
       data: population,
@@ -110,12 +91,11 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
       extruded: true,
       wireframe: true,
       getElevation: f => {
-        const value = f.properties.population ? f.properties.population['2010'] : 0
-        console.log(value / f.properties.area)
+        const value = f.properties.population ? f.properties.population[`${currentYear}`] : 0
         return value / f.properties.area * 10
       },
       getFillColor: f => {
-        const value = f.properties.population ? f.properties.population['2010'] : 0
+        const value = f.properties.population ? f.properties.population[`${currentYear}`] : 0
         return COLOR_SCALE(value / f.properties.area)
       },
       getLineColor: [255, 255, 255],
@@ -127,7 +107,7 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
     <DeckGL
       layers={layers}
      // effects={effects}
-      initialViewState={INITIAL_VIEW_STATE}
+      initialViewState={initialViewState}
       controller={true}
       getTooltip={getTooltip}
     >
