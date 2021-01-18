@@ -6,9 +6,12 @@ import { GeoJsonLayer, PolygonLayer } from '@deck.gl/layers';
 import { LightingEffect, AmbientLight, _SunLight as SunLight } from '@deck.gl/core';
 import { scaleThreshold } from 'd3-scale';
 
+import YearSelector from './components/YearSelector'
 import * as turf from '@turf/turf'
 
 import population from './data/galiciaWithPopulation.json'
+
+import './App.css'
 
 // Source data GeoJSON
 const DATA_URL =
@@ -40,35 +43,32 @@ export const COLOR_SCALE = scaleThreshold()
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json';
 
-const landCover = [[[-123.0, 49.196], [-123.0, 49.324], [-123.306, 49.324], [-123.306, 49.196]]];
-
-
-const currentYear = 1981
-function getTooltip({ object }) {
-  if (!object) return;
-
-  const population = object.properties.population ? parseInt(object.properties.population[`${currentYear}`]) : 0
-  const area = parseInt(object.properties.area)
-
-  return (
-    {
-      html:   
-      `\
-        <div><b>${object.properties.municipio}</b></div>
-        <div> Área: ${area} km<sup>2</sup> </div>
-        <div> Población: ${population} </div>
-        <div> Densidad: ${parseInt(population / area)} hab/km<sup>2</sup>  </div>
-        `
-    }
-  );
-}
-
 const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
-
+  const [currentYear, setCurrentYear] = useState(2000)
 
   population.features.forEach(feature => {
     feature.properties.area = turf.area(feature.geometry) / 1000000
   })
+
+  const getTooltip = ({ object }) => {
+    if (!object) return;
+  
+    const population = object.properties.population ? parseInt(object.properties.population[`${currentYear}`]) : 0
+    const area = parseInt(object.properties.area)
+  
+    return (
+      {
+        html:
+          `\
+          <div><b>${object.properties.municipio}</b></div>
+          <div> Área: ${area} km<sup>2</sup> </div>
+          <div> Población: ${population} </div>
+          <div> Densidad: ${parseInt(population / area)} hab/km<sup>2</sup>  </div>
+          `
+      }
+    );
+  }
+
 
   const [longitude, latitude] = turf.center(turf.featureCollection(population.features)).geometry.coordinates
 
@@ -81,6 +81,8 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
     bearing: 0
   };
 
+  population.features.forEach( feature => feature.properties.current = currentYear)
+
   const layers = [
     new GeoJsonLayer({
       id: 'geojson',
@@ -90,6 +92,9 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
       filled: true,
       extruded: true,
       wireframe: true,
+      updateTriggers: {
+        getElevation: {year: currentYear}
+      },
       getElevation: f => {
         const value = f.properties.population ? f.properties.population[`${currentYear}`] : 0
         return value / f.properties.area * 10
@@ -103,16 +108,30 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
     })
   ];
 
+  console.warn('Re-rendering map:', currentYear)
   return (
-    <DeckGL
-      layers={layers}
-     // effects={effects}
-      initialViewState={initialViewState}
-      controller={true}
-      getTooltip={getTooltip}
-    >
-      <StaticMap reuseMaps mapStyle={mapStyle} preventStyleDiffing={true} />
-    </DeckGL>
+    <React.Fragment>
+
+      <DeckGL
+        layers={layers}
+        // effects={effects}
+        initialViewState={initialViewState}
+        controller={true}
+        getTooltip={getTooltip}
+      >
+        <StaticMap reuseMaps mapStyle={mapStyle} preventStyleDiffing={true} />
+      </DeckGL>
+
+      <YearSelector 
+        years={[1981, 1991, 2000, 2010, 2019]}
+        slideTo={year => {
+          console.warn('Setting new year to : ', year)
+          setCurrentYear(year)
+        }}
+      />
+
+    </React.Fragment>
+
   );
 }
 
