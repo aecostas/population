@@ -54,7 +54,6 @@ const YearSelector = props => {
     }
 
     const valueLabelFormat = (value) => marks.findIndex((mark) => mark.value === value) + 1;
-    console.warn('rendering year selector')
     return (
         <div className={classes.root}>
             <Typography id="track-false-slider" gutterBottom>

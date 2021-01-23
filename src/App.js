@@ -7,6 +7,8 @@ import { LightingEffect, AmbientLight, _SunLight as SunLight } from '@deck.gl/co
 import { scaleThreshold } from 'd3-scale';
 
 import YearSelector from './components/YearSelector'
+import TimeSeriesChart from './components/TimeSeriesChart'
+
 import * as turf from '@turf/turf'
 
 import population from './data/galiciaWithPopulation.json'
@@ -39,8 +41,6 @@ export const COLOR_SCALE = scaleThreshold()
     [128, 0, 38]
   ]);
 
-
-
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json';
 
 const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
@@ -52,10 +52,10 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
 
   const getTooltip = ({ object }) => {
     if (!object) return;
-  
+
     const population = object.properties.population ? parseInt(object.properties.population[`${currentYear}`]) : 0
     const area = parseInt(object.properties.area)
-  
+
     return (
       {
         html:
@@ -69,7 +69,6 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
     );
   }
 
-
   const [longitude, latitude] = turf.center(turf.featureCollection(population.features)).geometry.coordinates
 
   const initialViewState = {
@@ -81,7 +80,17 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
     bearing: 0
   };
 
-  population.features.forEach( feature => feature.properties.current = currentYear)
+  population.features.forEach(feature => feature.properties.current = currentYear)
+
+  const years = ['1981', '1991', '2000', '2010', '2019']
+
+  const dataByYear = {}
+
+  years.forEach(year => {
+    dataByYear[year] = population.features
+      .map(feature => feature.properties.population[year])
+      .sort((a, b) => parseInt(b) - parseInt(a))
+  })
 
   const layers = [
     new GeoJsonLayer({
@@ -93,7 +102,7 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
       extruded: true,
       wireframe: true,
       updateTriggers: {
-        getElevation: {year: currentYear}
+        getElevation: { year: currentYear }
       },
       getElevation: f => {
         const value = f.properties.population ? f.properties.population[`${currentYear}`] : 0
@@ -108,7 +117,6 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
     })
   ];
 
-  console.warn('Re-rendering map:', currentYear)
   return (
     <React.Fragment>
 
@@ -122,12 +130,17 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
         <StaticMap reuseMaps mapStyle={mapStyle} preventStyleDiffing={true} />
       </DeckGL>
 
-      <YearSelector 
+      <YearSelector
         years={[1981, 1991, 2000, 2010, 2019]}
         slideTo={year => {
-          console.warn('Setting new year to : ', year)
           setCurrentYear(year)
         }}
+      />
+
+      <TimeSeriesChart
+        className='population-chart'
+        data={dataByYear}
+        currentYear={currentYear}
       />
 
     </React.Fragment>
