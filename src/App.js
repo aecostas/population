@@ -43,12 +43,23 @@ export const COLOR_SCALE = scaleThreshold()
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json';
 
+population.features.forEach(feature => {
+  feature.properties.area = turf.area(feature.geometry) / 1000000
+})
+
+const [longitude, latitude] = turf.center(turf.featureCollection(population.features)).geometry.coordinates
+const years = ['1981', '1991', '2000', '2010', '2019']
+
+const dataByYear = {}
+
+years.forEach(year => {
+  dataByYear[year] = population.features
+    .map(feature => feature.properties.population[year])
+    .sort((a, b) => parseInt(b) - parseInt(a))
+})
+
 const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
   const [currentYear, setCurrentYear] = useState(2000)
-
-  population.features.forEach(feature => {
-    feature.properties.area = turf.area(feature.geometry) / 1000000
-  })
 
   const getTooltip = ({ object }) => {
     if (!object) return;
@@ -69,7 +80,6 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
     );
   }
 
-  const [longitude, latitude] = turf.center(turf.featureCollection(population.features)).geometry.coordinates
 
   const initialViewState = {
     latitude,
@@ -81,16 +91,6 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
   };
 
   population.features.forEach(feature => feature.properties.current = currentYear)
-
-  const years = ['1981', '1991', '2000', '2010', '2019']
-
-  const dataByYear = {}
-
-  years.forEach(year => {
-    dataByYear[year] = population.features
-      .map(feature => feature.properties.population[year])
-      .sort((a, b) => parseInt(b) - parseInt(a))
-  })
 
   const layers = [
     new GeoJsonLayer({
