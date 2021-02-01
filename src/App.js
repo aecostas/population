@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { render } from 'react-dom';
 import { StaticMap } from 'react-map-gl';
 import DeckGL from '@deck.gl/react';
@@ -24,6 +24,25 @@ const DATA_URL =
 
 export const COLOR_SCALE = scaleThreshold()
   .domain([0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600])
+  .range([
+    [65, 182, 196],
+    [127, 205, 187],
+    [199, 233, 180],
+    [237, 248, 177],
+    // zero
+    [255, 255, 204],
+    [255, 237, 160],
+    [254, 217, 118],
+    [254, 178, 76],
+    [253, 141, 60],
+    [252, 78, 42],
+    [227, 26, 28],
+    [189, 0, 38],
+    [128, 0, 38]
+  ]);
+
+export const COLOR_SCALE_POPULATION = scaleThreshold()
+  .domain([0, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000, 2048000])
   .range([
     [65, 182, 196],
     [127, 205, 187],
@@ -80,7 +99,6 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
     );
   }
 
-
   const initialViewState = {
     latitude,
     longitude,
@@ -90,7 +108,30 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
     bearing: 0
   };
 
+  // this line changes the data modal so deck.gl refresh the map
   population.features.forEach(feature => feature.properties.current = currentYear)
+
+  const regionCallbacks = useMemo(() => ({
+    population: {
+      elevation: f => {
+        const value = f.properties.population ? f.properties.population[`${currentYear}`] : 0
+        return value / f.properties.area * 10
+      },
+      fillColor: f => {
+        const population = f.properties.population ? f.properties.population[`${currentYear}`] : 0
+        return COLOR_SCALE(population / f.properties.area)
+      }
+    },
+    density: {
+      elevation: f => {
+        return parseInt(f.properties.population[`${currentYear}`])
+      },
+      fillColor: f => {
+        const population = f.properties.population ? f.properties.population[`${currentYear}`] : 0
+        return COLOR_SCALE_POPULATION(population)
+      }
+    }
+  }))
 
   const layers = [
     new GeoJsonLayer({
@@ -104,14 +145,8 @@ const App = ({ data = DATA_URL, mapStyle = MAP_STYLE }) => {
       updateTriggers: {
         getElevation: { year: currentYear }
       },
-      getElevation: f => {
-        const value = f.properties.population ? f.properties.population[`${currentYear}`] : 0
-        return value / f.properties.area * 10
-      },
-      getFillColor: f => {
-        const value = f.properties.population ? f.properties.population[`${currentYear}`] : 0
-        return COLOR_SCALE(value / f.properties.area)
-      },
+      getElevation: regionCallbacks.density.elevation,
+      getFillColor: regionCallbacks.density.fillColor,
       getLineColor: [255, 255, 255],
       pickable: true
     })
